@@ -1,0 +1,6 @@
+flask==2.3.3
+flask-socketio==5.3.6
+paho-mqtt==1.6.1
+tensorflow==2.15.0
+numpy==1.26.4
+eventlet==0.33.3

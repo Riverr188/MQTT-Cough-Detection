@@ -1,0 +1,40 @@
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+*.h5
+*.log
+
+# ---- Virtualenv ----
+.env
+.venv/
+env/
+venv/
+ENV/
+*.env
+
+# ---- Jupyter ----
+.ipynb_checkpoints
+
+# ---- OS / Editor ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ---- Models ----
+# If model is large, ignore it and download/deploy separately
+models/
+*.tflite
+*.h5
+
+# ---- Docker ----
+*.pid
+*.sock
+*.db
+
+# ---- Railway ----
+# Railway uses env vars → don't commit secrets
+railway.json
