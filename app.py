@@ -46,7 +46,7 @@ HTML_TEMPLATE = """
   <meta http-equiv="refresh" content="2">
 </head>
 <body>
-  <h2>🧪 Real-Time Cough Detection (MQTT)</h2>
+  <h2> Real-Time Cough Detection (MQTT)</h2>
   <p><strong>Latest Prediction:</strong> {{ label }} (confidence: {{ confidence }})</p>
 </body>
 </html>
@@ -57,7 +57,7 @@ INDEX_TEMPLATE = """
 <html>
 <head><title>Cough Detection API</title></head>
 <body>
-  <h3>✅ Flask API is running</h3>
+  <h3> Flask API is running</h3>
   <ul>
     <li>Check last result at <a href='/latest'>/latest</a></li>
     <li>View live auto-refresh UI at <a href='/ui'>/ui</a></li>
@@ -70,13 +70,13 @@ INDEX_TEMPLATE = """
 # Shared State
 # -----------------------------
 latest_prediction = {"label": "None", "confidence": 0.0}
+chunk_buffer = []   # for streaming/chunked messages
 
 # -----------------------------
 # Inference
 # -----------------------------
 def run_inference(audio):
     """Run inference on one full audio buffer"""
-    # Pad/trim to expected length
     if len(audio) < expected_length:
         pad = np.zeros(expected_length - len(audio), dtype=np.float32)
         audio = np.concatenate([audio, pad])
@@ -97,29 +97,51 @@ def run_inference(audio):
 # -----------------------------
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print("✅ Connected to HiveMQ")
+        print("✅ Connected to broker")
         client.subscribe(TOPIC)
     else:
         print(f"❌ MQTT failed with code {rc}")
 
 def on_message(client, userdata, msg):
-    global latest_prediction
-    print(f"📩 Received {len(msg.payload)} bytes from {msg.topic}")
+    global latest_prediction, chunk_buffer
+
     try:
-        raw_bytes = base64.b64decode(msg.payload)  # base64 PCM16
-        audio = np.frombuffer(raw_bytes, dtype=np.int16).astype(np.float32) / 32768.0
-        latest_prediction = run_inference(audio)
+        payload = msg.payload.decode("utf-8", errors="ignore")
 
-        # Broadcast to WebSocket
-        socketio.emit("prediction", latest_prediction)
+        if payload == "START":
+            chunk_buffer = []
+            print("🚀 New audio stream started")
+        elif payload == "END":
+            if chunk_buffer:
+                try:
+                    raw_bytes = base64.b64decode("".join(chunk_buffer))
+                    audio = np.frombuffer(raw_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+                    latest_prediction = run_inference(audio)
+                    socketio.emit("prediction", latest_prediction)
+                    print(f"🔮 Prediction (stream): {latest_prediction}")
+                except Exception as e:
+                    print("⚠️ Error reconstructing stream:", e)
+            else:
+                print("⚠️ END received but no chunks in buffer")
+        else:
+            # Try base64 decode directly → whole audio
+            try:
+                raw_bytes = base64.b64decode(payload)
+                audio = np.frombuffer(raw_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+                latest_prediction = run_inference(audio)
+                socketio.emit("prediction", latest_prediction)
+                print(f"🔮 Prediction (whole): {latest_prediction}")
+            except Exception:
+                # If not valid base64 → assume it's part of a chunked stream
+                chunk_buffer.append(payload)
+                print(f"📩 Chunk received ({len(payload)} chars)")
 
-        print(f"🔮 Prediction: {latest_prediction}")
     except Exception as e:
-        print("⚠️ Error processing audio:", e)
+        print("⚠️ Error processing MQTT message:", e)
 
 def start_mqtt():
     def run():
-        client = mqtt.Client(protocol=mqtt.MQTTv311)  # force v3.1.1
+        client = mqtt.Client(protocol=mqtt.MQTTv311)  # v3.1.1
         client.on_connect = on_connect
         client.on_message = on_message
         client.connect(BROKER, PORT, 60)
