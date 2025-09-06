@@ -10,16 +10,12 @@ import paho.mqtt.client as mqtt
 # -----------------------------
 # Config
 # -----------------------------
-BROKER = "39b1ac22a4ef457dab53d86482ac08ef.s1.eu.hivemq.cloud"
-PORT = 8883
+BROKER = "mqtt-broker-production-dc66.up.railway.app"
+PORT = 1883
 TOPIC = "cough/audio"
 
-# Load credentials from environment (Railway → Variables)
-USERNAME = "CoughDetection"
-PASSWORD = "Eureka2025"
-
-if not USERNAME or not PASSWORD:
-    print("⚠️ MQTT credentials not set. Please add MQTT_USERNAME and MQTT_PASSWORD in Railway environment variables.")
+USERNAME = None
+PASSWORD = None
 
 # -----------------------------
 # Flask + SocketIO
@@ -124,8 +120,8 @@ def on_message(client, userdata, msg):
 def start_mqtt():
     def run():
         client = mqtt.Client()
-        client.username_pw_set(USERNAME, PASSWORD)
-        client.tls_set()
+        if USERNAME and PASSWORD:
+            client.username_pw_set(USERNAME, PASSWORD)
         client.on_connect = on_connect
         client.on_message = on_message
         client.connect(BROKER, PORT, 60)
