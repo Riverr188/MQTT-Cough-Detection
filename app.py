@@ -119,9 +119,7 @@ def on_message(client, userdata, msg):
 
 def start_mqtt():
     def run():
-        client = mqtt.Client()
-        if USERNAME and PASSWORD:
-            client.username_pw_set(USERNAME, PASSWORD)
+        client = mqtt.Client(protocol=mqtt.MQTTv311)  # force v3.1.1
         client.on_connect = on_connect
         client.on_message = on_message
         client.connect(BROKER, PORT, 60)
